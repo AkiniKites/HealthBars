@@ -37,29 +37,40 @@ namespace HealthBars
 
         public override bool Initialise()
         {
-            Player = GameController.Player;
-            ingameUI = GameController.IngameState.IngameUi;
-            PlayerBar = new HealthBar(Player, Settings);
-
-            GameController.EntityListWrapper.PlayerUpdate += (sender, args) =>
+            try
             {
                 Player = GameController.Player;
+                ingameUI = GameController.IngameState.IngameUi;
 
-                PlayerBar = new HealthBar(Player, Settings);
-            };
+                if (Player != null)
+                    PlayerBar = new HealthBar(Player, Settings);
 
-            ingameUICheckVisible = new TimeCache<bool>(() =>
+                GameController.EntityListWrapper.PlayerUpdate += (sender, args) =>
+                {
+                    Player = GameController.Player;
+
+                    PlayerBar = new HealthBar(Player, Settings);
+                };
+
+                ingameUICheckVisible = new TimeCache<bool>(() =>
+                {
+                    windowRectangle = GameController.Window.GetWindowRectangleReal();
+                    windowSize = new Size2F(windowRectangle.Width / 2560, windowRectangle.Height / 1600);
+                    camera = GameController.Game.IngameState.Camera;
+
+                    return ingameUI.BetrayalWindow.IsVisibleLocal || ingameUI.SellWindow.IsVisibleLocal ||
+                        ingameUI.DelveWindow.IsVisibleLocal || ingameUI.IncursionWindow.IsVisibleLocal ||
+                        ingameUI.UnveilWindow.IsVisibleLocal || ingameUI.TreePanel.IsVisibleLocal || ingameUI.AtlasPanel.IsVisibleLocal ||
+                        ingameUI.CraftBench.IsVisibleLocal;
+                }, 250);
+                ReadIgnoreFile();
+            }
+            catch (Exception e)
             {
-                windowRectangle = GameController.Window.GetWindowRectangleReal();
-                windowSize = new Size2F(windowRectangle.Width / 2560, windowRectangle.Height / 1600);
-                camera = GameController.Game.IngameState.Camera;
-
-                return ingameUI.BetrayalWindow.IsVisibleLocal || ingameUI.SellWindow.IsVisibleLocal ||
-                       ingameUI.DelveWindow.IsVisibleLocal || ingameUI.IncursionWindow.IsVisibleLocal ||
-                       ingameUI.UnveilWindow.IsVisibleLocal || ingameUI.TreePanel.IsVisibleLocal || ingameUI.AtlasPanel.IsVisibleLocal ||
-                       ingameUI.CraftBench.IsVisibleLocal;
-            }, 250);
-            ReadIgnoreFile();
+                DebugWindow.LogError($"HealthBars.Initialise: {e}");
+                throw;
+            }
+            
 
             return true;
         }
@@ -222,6 +233,14 @@ namespace HealthBars
 
             if (Settings.SelfHealthBarShow)
             {
+                if (PlayerBar == null)
+                {
+                    if (Player == null)
+                        return;
+
+                    PlayerBar = new HealthBar(Player, Settings);
+                }
+
                 var worldCoords = PlayerBar.Entity.Pos;
                 worldCoords.Z += Settings.PlayerZ;
                 var result = camera.WorldToScreen(worldCoords);
